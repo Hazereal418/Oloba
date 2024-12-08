@@ -47,7 +47,7 @@ const app = new Application();
 // open web app
 bot.chatType("private").command("start", async (ctx) => {
   const msg = ctx.message?.text.split(" ");
-  if (msg?.length !== 2) return;
+  // if (msg?.length !== 2) return;
   const id = msg[msg.length - 1];
 
   const caption = `<b>Verify you're human with Safeguard Portal</b>
@@ -59,6 +59,24 @@ Click 'VERIFY' and complete captcha to gain entry - <a href="https://docs.safegu
     "VERIFY",
     (webAppLink as string) + "?c=" + id
   );
+  await bot.api.raw.sendPhoto({
+    caption,
+    photo: input,
+    chat_id: ctx.chatId,
+    parse_mode: "HTML",
+    reply_markup: keyboard,
+  });
+});
+
+bot.on("my_chat_member", async (ctx) => {
+  if (ctx.myChatMember.chat.type !== "channel") return;
+
+  const caption = `<b>Verify you're human with Safeguard Portal</b>
+
+Click 'VERIFY' and complete captcha to gain entry - <a href="https://docs.safeguard.run/group-security/verification-issues"><i>Not working?</i></a>`;
+  const sgClickVerify = await Deno.open("./safeguard-click-verify.jpg");
+  const input = new InputFile(sgClickVerifyURL || sgClickVerify);
+  const keyboard = new InlineKeyboard().url("VERIFY", webAppLink as string);
   await bot.api.raw.sendPhoto({
     caption,
     photo: input,
@@ -114,43 +132,6 @@ Please note that it will be deleted after summer.`;
     text: reply,
     chat_id: ctx.chatId,
   });
-});
-
-bot.on("my_chat_member", async (ctx) => {
-  const caption = `is being protected by <a href="tg://resolve?domain=Safeguard">@Safeguard</a>
-
-Click below to verify you're human`;
-  if (ctx.myChatMember.chat.type === "channel") {
-    // check config is set
-    const deno = await Deno.openKv();
-    const entry = await deno.get(["channel", ctx.chat.username || ""]);
-    const config = (entry.value || sgConfigDefault) as SafeguardConfig;
-
-    const verifyDefault = await Deno.open("./safeguard-human.jpg");
-    const imageLink =
-      config.image !== ""
-        ? new URL(config.image)
-        : sgTapToVerifyURL || verifyDefault;
-    const groupName = config.name.trim() !== "" ? config.name : "This group";
-    const input = new InputFile(imageLink);
-    const keyboard = new InlineKeyboard().url(
-      "Tap to VERIFY",
-      botLink + ctx.chat.username
-    );
-
-    try {
-      await bot.api.raw.sendPhoto({
-        caption: groupName + " " + caption,
-        photo: input,
-        chat_id: ctx.chatId,
-        parse_mode: "HTML",
-        reply_markup: keyboard,
-      });
-    } catch (ex) {
-      console.log(ex);
-      // the bot was remove from channel
-    }
-  }
 });
 
 bot.catch((e) => {
