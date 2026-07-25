@@ -1,3 +1,4 @@
+
     ts
     import {
       Bot,
@@ -5,7 +6,6 @@
       InputFile,
       webhookCallback,
     } from "https://deno.land/x/grammy@v1.30.0/mod.ts";
-    import { isbot } from "npm:isbot";
     import {
       Application,
       Context,
@@ -13,7 +13,6 @@
       Status,
     } from "https://deno.land/x/oak@v17.0.0/mod.ts";
     import { oakCors } from "https://deno.land/x/cors@v1.2.2/mod.ts";
-    import { join } from "https://deno.land/std@0.211.0/path/mod.ts";
     
     type SafeguardConfig = {
       channel: string;
@@ -122,7 +121,6 @@
         config.image = kv(text[1]);
         config.name = kv(text[2]);
         config.inviteLink = kv(text[3]);
-        // console.debug(config);
         const deno = await Deno.openKv();
         await deno.set(["channel", config.channel], config);
       } catch (e) {
@@ -143,7 +141,7 @@
     
     /* #region webserver */
     
-    const MIME_TYPES: Record<string, string> = {
+    const MIME_TYPES: { [key: string]: string } = {
       ".html": "text/html",
       ".css": "text/css",
       ".js": "application/javascript",
@@ -163,15 +161,14 @@
       filePath: string,
     ): Promise<void> {
       try {
-        const fullPath = join(root, filePath);
+        const fullPath = root.endsWith("/") ? root + filePath : root + "/" + filePath;
         const data = await Deno.readFile(fullPath);
         const ext = filePath.includes(".") ? filePath.slice(filePath.lastIndexOf(".")) : "";
         ctx.response.type = MIME_TYPES[ext] || "application/octet-stream";
         ctx.response.body = data;
       } catch {
-        // fallback to index.html for SPA routes
         try {
-          const indexPath = join(root, "index.html");
+          const indexPath = root.endsWith("/") ? root + "index.html" : root + "/index.html";
           const data = await Deno.readFile(indexPath);
           ctx.response.type = "text/html";
           ctx.response.body = data;
@@ -180,6 +177,13 @@
           ctx.response.body = "Not Found";
         }
       }
+    }
+    
+    const BOT_REGEX =
+    /bot|crawler|spider|crawl|scrape|facebookexternalhit|twitterbot|telegrambot|whatsapp|slack|discord|linkedinbot|googlebot|bingbot|duckduckgo|baiduspider|yandex|pinterest|embedly|preview|prerender|chrome-lighthouse/i;
+    
+    function isbot(ua: string): boolean {
+      return BOT_REGEX.test(ua);
     }
     
     const newVerified = async (ctx: Context) => {
@@ -207,11 +211,10 @@
               parse_mode: "HTML",
             });
           }
-          // send chat invite link
           const deno = await Deno.openKv();
           const entry = await deno.get([
             "channel",
-            "default" /*TODO: replace with unique id */,
+            "default",
           ]);
           const config = (entry.value || sgConfigDefault) as SafeguardConfig;
           const imageLink = sgVerifiedURL
@@ -268,7 +271,6 @@
     
     // Handle routes
     app.use(async (ctx: Context) => {
-      // only respond to post or get request
       if (isbot(ctx.request.userAgent.ua)) return;
       if (!(ctx.request.method === "POST" || ctx.request.method === "GET")) return;
     
