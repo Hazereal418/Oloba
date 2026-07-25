@@ -32,7 +32,7 @@ const DEBUG = Boolean(Number(Deno.env.get("DEBUG")));
 /* #endregion */
 
 /* #region init */
-const botLink = `tg://resolve?domain=${botName}&start=`;
+const botLink = 'tg://resolve?domain=${botName}&start=';
 const sgConfigDefault: SafeguardConfig = {
   channel: "",
   image: "",
