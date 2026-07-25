@@ -1,6 +1,4 @@
-
-    ts
-    import {
+ import {
       Bot,
       InlineKeyboard,
       InputFile,
